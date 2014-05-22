@@ -80,9 +80,16 @@ filterTag <- function(bamcounter, tag, value, skip=FALSE) {
     # filter for tag/value
     if (!(is.null(class(tag))) && !(is.null(class(value)))) {
         if (!(is.null(bamlist$tag[[tag]]))) {
-            # 
+			# mandatory fields 
             fields<-names(bamlist)[which(!names(bamlist) == "tag")]
-            # output only alignments with the given tag/value pair
+
+			# parallel clusterMap
+			limit_cores=detectCores()/6
+			flen=length(fields)
+			cs <- ifelse(flen<=limit_cores, flen, limit_cores)
+			cl <- makeCluster(cs, type="FORK")
+            
+			# output only alignments with the given tag/value pair
             if (!(skip==TRUE)) {
                 # idx       
                 idx<-which(bamlist$tag[[tag]]==value)
@@ -93,18 +100,26 @@ filterTag <- function(bamcounter, tag, value, skip=FALSE) {
                 idx<-which(bamlist$tag[[tag]]!=value)
             }
             # filter fields
-            bamlistfilt <- lapply(bamlist[fields], function(v) {
+            bamlistfilt <- BiocGenerics::clusterApplyLB(cl,bamlist[fields], function(v) {
                                         if (!(is.vector(v)))
                                             stop("should be a vector")
                                         v[idx]
                 })
+			names(bamlistfilt)<-names(bamlist[fields])
+			stopCluster(cl)
+
             # filter tag list
-            bamlistfilt$tag <- lapply(bamlist$tag, function(v) {
+			tlen=length(bamlist$tag)
+			cs <- ifelse(tlen<=limit_cores, tlen, limit_cores)
+            cl <- makeCluster(cs, type="FORK")
+            bamlistfilt$tag <- BiocGenerics::clusterApplyLB(cl,bamlist$tag, function(v) {
                                           if (!(is.vector(v)))
                                               stop("should be a vector")
                                           v[idx]
                 })
-            bamlistfilt
+			names(bamlistfilt$tag)<-names(bamlist$tag)
+            stopCluster(cl)
+			bamlistfilt
         }
     }
 }

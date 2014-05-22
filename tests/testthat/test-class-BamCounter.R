@@ -118,8 +118,8 @@ test_that("TestJoiningCounts",{
 context("Filtering tags")
 
 test_that("TestFilteringTagsHI:i:1",{
-	#file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/sample_NHI5.sorted.bam"
-	file="../../data/sample_NHI5.sorted.bam"
+	file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/sample_NHI5.sorted.bam"
+	#file="../../data/sample_NHI5.sorted.bam"
 	if (!file.exists(file))
 		warning(paste(file, "file does not exist.", sep=" "))
 

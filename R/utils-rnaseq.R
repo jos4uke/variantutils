@@ -164,10 +164,10 @@ countMismatchesAndJoin <- function(bam, mismatchTag="NM", withOnlyFirstHit=TRUE,
 		bc1@res<-bc1filt
 		bc2@res<-bc2filt
 		countColnames=c("AllAln_WithOnlyFirstHit_Freq","ProperPairAln_WithOnlyFirstHit_Freq")
-		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_withOnlyFirstHit.tab",sep="")
+		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_",mismatchTag,"By",by,"_withOnlyFirstHit.tab",sep="")
     } else {
 		countColnames=c("AllAln_WithAllHits_Freq","ProperPairAln_WithAllhHits_Freq")
-		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_withAllHits.tab",sep="")
+		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_",mismatchTag,"By",by,"_withAllHits.tab",sep="")
 	}
 	bcl=list(bc1, bc2)
 	xtags=c(by)

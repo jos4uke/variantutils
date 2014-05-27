@@ -2,7 +2,7 @@
 ### Utils functions
 ### ======================================
 
-clusterMapCountMismatches <- function(bamcounter_list,crosstags_list) {
+clusterMapCountMismatches <- function(bamcounter_list,mismatchTag,crosstags_list) {
 	# check validity of arguments
 	bclen <- length(bamcounter_list)
 	if (bclen==0L)
@@ -11,6 +11,8 @@ clusterMapCountMismatches <- function(bamcounter_list,crosstags_list) {
 		stop("bamcounter object and bam tags lists must be of same length")
 	if (!(any(llply(bamcounter_list,class)=="BamCounter"))) 
 		stop("all elements in bamcounter list must be of class BamCounter")
+	if (!(class(mismatchTag)=="character") && !(nchar(mismatchTag)==2))
+		                stop("provided 'mismatchTag' value is not a 2-character string")
 	if (!(any(llply(crosstags_list, function(t){
 											  if (is.null(class(t))) return(TRUE) 
 											  ifelse(class(t)!="character", FALSE, TRUE)}
@@ -24,7 +26,7 @@ clusterMapCountMismatches <- function(bamcounter_list,crosstags_list) {
 	bamcounter_list <- BiocGenerics::clusterApplyLB(cl, 1:bclen, function(i){
 																			bci <- bamcounter_list[[i]]
 																			xtagi <- crosstags_list[[i]]
-																			setCounts(bci) <- countMismatches(bci,xtagi)
+																			setCounts(bci) <- countMismatches(bci,mismatchTag,xtagi)
 																			bci
 																			})
 	stopCluster(cl)
@@ -171,7 +173,7 @@ countMismatchesAndJoin <- function(bam, mismatchTag="NM", withOnlyFirstHit=TRUE,
 	}
 	bcl=list(bc1, bc2)
 	xtags=c(by)
-    bcl <- clusterMapCountMismatches(bcl,list(xtags,xtags))
+    bcl <- clusterMapCountMismatches(bcl,mismatchTag,list(xtags,xtags))
     dfj <- joinCounts(bcl,countColnames,by=c(mismatchTag,by),type="left",match="first")
 
     write.table(dfj,file=outFile,sep="\t",row.names = FALSE)

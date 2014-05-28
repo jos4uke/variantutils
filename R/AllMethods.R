@@ -24,7 +24,7 @@ setMethod(
 					stop("tags must be a character vector and each tag element must be non-empty string")
 
 				# cross NM tag with given other tags
-				df <- as.data.frame(xtabs(as.formula(paste(paste("~",mismatchTag,sep=""),tags, sep="+")), data=object@res[["tag"]]))
+				df <- as.data.frame(xtabs(as.formula(paste(paste("~",mismatchTag,sep=""),tags, sep="+",collapse="+")), data=object@res[["tag"]]))
 				return(df)
 			 } else {
 				# only NM tag

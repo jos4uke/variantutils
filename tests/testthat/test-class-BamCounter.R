@@ -96,6 +96,34 @@ test_that("TestParallelClusterMapCountMismatches",{
 	)
 })
 
+test_that("TestCountMismatchesTagsEquality: NM==XW+XV",{
+    file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted.bam"
+	#file=system.file("extdata", "test_XW_sorted.bam", package="VariantUtils", mustWork=TRUE)
+	p1=ScanBamParam(tag=c("NM", "XW", "XV","HI"), what="flag")
+    bc1 = BamCounter(file=file, param=p1)
+    tags=c("XW","XV")
+
+    mismatchTag="NM"
+    bcl <- clusterMapCountMismatches(list(bc1),mismatchTag,list(tags))
+
+    #print(paste("bcl length: ",length(bcl), sep=""), zero.print = ".")
+    expect_true(length(bcl)==1)
+    llply(seq_len(length(bcl)), function(i){
+                                            expect_match(class(bcl[[i]]),"BamCounter")
+                                            expect_true(length(row.names(bcl[[i]]@counts)) > 0)
+                                            cat("\n")
+                                            h6=bcl[[i]]@counts[1:6,]
+                                            print(h6, zero.print = ".")
+                                        }
+    )
+	bc_one<-bcl[[1]]
+	llply(seq_len(length(bc_one@counts$NM)), function(i){
+													expect_equal(as.numeric(bc_one@counts$NM[i]),sum(as.numeric(bc_one@counts$XW[i]),as.numeric(bc_one@counts$XV[i])))
+	}
+	  )
+})
+
+
 context("Merging counts dataframes")
 
 test_that("TestJoiningCounts",{
@@ -123,7 +151,7 @@ context("Filtering tags")
 
 test_that("TestFilteringTagsHI:i:1",{
 	file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/sample_NHI5.sorted.bam"
-	#file="../../data/sample_NHI5.sorted.bam"
+	#file=system.file("extdata", "sample_NHI5.sorted.bam", package="VariantUtils", mustWork=TRUE)
 	if (!file.exists(file))
 		warning(paste(file, "file does not exist.", sep=" "))
 

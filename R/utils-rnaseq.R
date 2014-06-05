@@ -179,4 +179,42 @@ countMismatchesAndJoin <- function(bam, mismatchTag="NM", withOnlyFirstHit=TRUE,
     write.table(dfj,file=outFile,sep="\t",row.names = FALSE)
 }
 
+#
+# Independent events
+#
 
+countIndels <- function(cigar) {
+	# check validity of arguments
+	if (!(class(cigar)=="character") && grepl(pattern="([0-9]+[MIDNSHP])+|*",cigar))
+		stop("provided 'cigar' value is not a character string or do not match the expected pattern")
+
+	matches=gregexpr(pattern="([0-9]+[ID])+", text=cigar)
+	indels=unlist(regmatches(cigar, m=matches))
+	indelsSizeSum=sum(as.numeric(substr(indels,1,nchar(indels)-1)))
+	indelsCountRef=c(length(indels),indelsSizeSum)
+	indelsCountRef
+}
+
+
+#calculateIndependentEvents <- function(bamcounter, ieTag="IE", ignore_snp=FALSE) {
+#    # check validity of arguments
+#	if (!(class(ieTag)=="character") && !(nchar(ieTag)==2))
+#		stop("provided 'ieTag' value is not a 2-character string")
+#	if (!(is.logical(ignore_snp)))
+#        stop("provided ignore_snp value is not logical/boolean")
+#	if (!(class(bamcounter)=="BamCounter"))
+#		stop("provided bamcounter value is not of class BamCounter")	
+#	bamlist<-bamcounter@res
+#    bamlistlen <- length(bamlist)
+#    if (bamlistlen==0L)
+#        stop("provided bam list length must be greater than 0")
+#
+#	if (!(is.null(class(ieTag)))) {
+#        if (!(is.null(bamlist$cigar))) {
+#			# todo: write a function that parse the cigar code to get number of indels and the sum
+#		
+#
+#		}
+#	}	
+#}
+#

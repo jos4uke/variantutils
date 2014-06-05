@@ -167,3 +167,56 @@ test_that("TestFilteringTagsHI:i:1",{
 	print(HI1len)
 	expect_true(HI1len==19L)
 })
+
+context("Independent Events")
+
+test_that("TestCountIndels",{
+	cigar="3S6M1D2M3I4M4S"
+	matches=gregexpr(pattern="([0-9]+[ID])+", text=cigar)
+	indels=unlist(regmatches(cigar, m=matches))
+	indelsSizeSum=sum(as.numeric(substr(indels,1,nchar(indels)-1))) 
+	indelsCountRef=c(length(indels),indelsSizeSum)
+
+	indelsCount=countIndels(cigar)
+	
+	print(paste("Expected: ", paste(indelsCountRef, collapse=" ")))
+	print(paste("Calculated: ", paste(indelsCount, collapse= " ")))
+	
+	expect_true(isTRUE(all.equal(indelsCount,indelsCountRef)))
+})
+
+#test_that("TestCalculateIndependentEventsWithoutSNP", {
+#	file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted.bam"
+#	#file=system.file("extdata", "test_XW_sorted.bam", package="VariantUtils", mustWork=TRUE)
+#	ie_ref_file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted_countIE.txt"
+#	#ie_ref_file=system.file("extdata", "", package="VariantUtils", mustWork=TRUE)
+#	
+#	if (!file.exists(file))
+#		warning(paste(file, "file does not exist.", sep=" "))
+#	if (!file.exists(ie_ref_file))
+#		warning(paste(ie_ref_file, "file does not exist.", sep=" "))
+#
+#	withOnlyFirstHit=TRUE
+#	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+#	taglist=c("NM", "NH", HI)
+#	flags=c("cigar")
+#	p1=ScanBamParam(tag=taglist, what=flags)
+#	bc1 = BamCounter(file=file, param=p1)
+#	bc1filt <- filterTag(bc1, "HI", 1)
+#	bc1@res<-bc1filt
+#	
+#	ieTag="IE"
+#	bc1@res$tag[[ieTag]] <- calculateIndependentEvents(bc1, ieTag="IE")
+#	HI1len=length(bc1filt$tag[["HI"]])
+#	IElen=length(bc1@res$tag[[ieTag]])
+#	
+#	print(IElen)
+#	expect_true(HI1len==IElen)
+#
+#	# TODO: check value using the output of bash function calcIE
+#	ie_ref=read.table(file=ie_ref_file, header=TRUE, sep="\t")
+#	expect_true(IElen==length(na.omit(ie_ref$IE)))
+#	expect_true(isTRUE(all.equal(bc1@res$tag[[ieTag]],na.omit(ie_ref$IE))))
+#})
+#
+#

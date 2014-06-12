@@ -196,25 +196,55 @@ countIndels <- function(cigar) {
 }
 
 
-#calculateIndependentEvents <- function(bamcounter, ieTag="IE", ignore_snp=FALSE) {
-#    # check validity of arguments
-#	if (!(class(ieTag)=="character") && !(nchar(ieTag)==2))
-#		stop("provided 'ieTag' value is not a 2-character string")
-#	if (!(is.logical(ignore_snp)))
-#        stop("provided ignore_snp value is not logical/boolean")
-#	if (!(class(bamcounter)=="BamCounter"))
-#		stop("provided bamcounter value is not of class BamCounter")	
-#	bamlist<-bamcounter@res
-#    bamlistlen <- length(bamlist)
-#    if (bamlistlen==0L)
-#        stop("provided bam list length must be greater than 0")
-#
-#	if (!(is.null(class(ieTag)))) {
-#        if (!(is.null(bamlist$cigar))) {
-#			# todo: write a function that parse the cigar code to get number of indels and the sum
-#		
-#
-#		}
-#	}	
-#}
-#
+calculateIndependentEvents <- function(bamcounter, ieTag="IE", isSnp=FALSE) {
+    # check validity of arguments
+	if (!(class(ieTag)=="character") && !(nchar(ieTag)==2))
+		stop("provided 'ieTag' value is not a 2-character string")
+	if (!(is.logical(isSnp)))
+        stop("provided isSnp value is not logical/boolean")
+	if (!(class(bamcounter)=="BamCounter"))
+		stop("provided bamcounter value is not of class BamCounter")	
+	bamlist<-bamcounter@res
+    bamlistlen <- length(bamlist)
+    if (bamlistlen==0L)
+        stop("provided bam list length must be greater than 0")
+
+	if (!(is.null(class(ieTag)))) {
+        if (!(is.null(bamlist$cigar))) {
+			# init output list
+			out=list()
+			# count indels
+			idl <- llply(seq_len(length(bamlist$cigar)), function(i) {
+																		countIndels(bamlist$cigar[[i]])
+			})
+			m=matrix(unlist(idl),ncol=2, byrow=TRUE)
+			out$ID=m[,1]
+			out$IS=m[,2]
+
+			# count mismatches and independent events
+			if (isSnp) {
+				# check for XW tag
+				if (is.null(bamlist$tag$XW))
+					stop("XW tag is absent in provided alignments. Please check your bam file.")
+				# calculate IE=XW+ID
+				out$IE <- bamlist$tag$XW+out$ID
+			} else
+			{
+				# mismatches: IM=NM-IS
+				if (is.null(bamlist$tag$NM))
+					stop("NM tag is absent in provided alignments. Please check your bam file.")
+
+				#out$IM <- unlist(llply(seq_len(length(bamlist$tag$NM)), function(i) {
+				#																	bamlist$tag$NM[i]-out$IS[i]
+				#}))
+				out$IM=bamlist$tag$NM-out$IS
+				# independent events: IE=IM+ID	
+				out$IE <- out$IM+out$ID
+			}
+
+			# output
+			out
+		}
+	}	
+}
+

@@ -185,38 +185,88 @@ test_that("TestCountIndels",{
 	expect_true(isTRUE(all.equal(indelsCount,indelsCountRef)))
 })
 
-#test_that("TestCalculateIndependentEventsWithoutSNP", {
-#	file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted.bam"
-#	#file=system.file("extdata", "test_XW_sorted.bam", package="VariantUtils", mustWork=TRUE)
-#	ie_ref_file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted_countIE.txt"
-#	#ie_ref_file=system.file("extdata", "", package="VariantUtils", mustWork=TRUE)
-#	
-#	if (!file.exists(file))
-#		warning(paste(file, "file does not exist.", sep=" "))
-#	if (!file.exists(ie_ref_file))
-#		warning(paste(ie_ref_file, "file does not exist.", sep=" "))
-#
-#	withOnlyFirstHit=TRUE
-#	HI=ifelse(withOnlyFirstHit,"HI",NULL)
-#	taglist=c("NM", "NH", HI)
-#	flags=c("cigar")
-#	p1=ScanBamParam(tag=taglist, what=flags)
-#	bc1 = BamCounter(file=file, param=p1)
-#	bc1filt <- filterTag(bc1, "HI", 1)
-#	bc1@res<-bc1filt
-#	
-#	ieTag="IE"
-#	bc1@res$tag[[ieTag]] <- calculateIndependentEvents(bc1, ieTag="IE")
-#	HI1len=length(bc1filt$tag[["HI"]])
-#	IElen=length(bc1@res$tag[[ieTag]])
-#	
-#	print(IElen)
-#	expect_true(HI1len==IElen)
-#
-#	# TODO: check value using the output of bash function calcIE
-#	ie_ref=read.table(file=ie_ref_file, header=TRUE, sep="\t")
-#	expect_true(IElen==length(na.omit(ie_ref$IE)))
-#	expect_true(isTRUE(all.equal(bc1@res$tag[[ieTag]],na.omit(ie_ref$IE))))
-#})
-#
-#
+test_that("TestCalculateIndependentEventsWithoutSNP", {
+	file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/rnaseq_sample_NHI5_ID_nosnp.sorted.bam"
+	#file=system.file("extdata", "rnaseq_sample_NHI5_ID_nosnp.sorted.bam", package="VariantUtils", mustWork=TRUE)
+	ie_ref_file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/rnaseq_sample_NHI5_ID_nosnp.sorted_calcIE.txt"
+	#ie_ref_file=system.file("extdata", "rnaseq_sample_NHI5_ID_nosnp.sorted_calcIE.txt", package="VariantUtils", mustWork=TRUE)
+	
+	if (!file.exists(file))
+		warning(paste(file, "file does not exist.", sep=" "))
+	if (!file.exists(ie_ref_file))
+		warning(paste(ie_ref_file, "file does not exist.", sep=" "))
+
+	withOnlyFirstHit=TRUE
+	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+	taglist=c("NM", "NH", HI)
+	flags=c("cigar")
+	p1=ScanBamParam(tag=taglist, what=flags)
+	bc1 = BamCounter(file=file, param=p1)
+	
+	ieTag="IE"
+	out=calculateIndependentEvents(bc1, ieTag="IE", isSnp=FALSE)
+	print("NM")
+	print(head(bc1@res$tag$NM))
+	llply(seq_len(length(out)), function(i){
+											print(names(out)[i])
+											print(head(out[[i]]))
+	})
+	#print(head(out))
+	bc1@res$tag=c(bc1@res$tag,out)
+	HIlen=length(bc1@res$tag[["HI"]])
+	IElen=length(bc1@res$tag[[ieTag]])
+	
+	print(IElen)
+	expect_true(HIlen==IElen)
+
+	# check value using the output of bash function calcIE
+	ie_ref=read.table(file=ie_ref_file, header=TRUE, sep="\t")
+	print("IE ref")
+	print(head(ie_ref$IE))
+	print(length(ie_ref$IE))
+	expect_true(IElen==length(ie_ref$IE))
+	expect_true(isTRUE(all.equal(bc1@res$tag[[ieTag]],ie_ref$IE)))
+})
+
+test_that("TestCalculateIndependentEventsWithSNP", {
+	file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted.bam"
+	#file=system.file("extdata", "test_XW_sorted.bam", package="VariantUtils", mustWork=TRUE)
+	ie_ref_file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted_calcIE.txt"
+	#ie_ref_file=system.file("extdata", "test_XW_sorted_calcIE.txt", package="VariantUtils", mustWork=TRUE)
+	
+	if (!file.exists(file))
+		warning(paste(file, "file does not exist.", sep=" "))
+	if (!file.exists(ie_ref_file))
+		warning(paste(ie_ref_file, "file does not exist.", sep=" "))
+
+	withOnlyFirstHit=TRUE
+	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+	taglist=c("NM", "NH", HI, "XW", "XV")
+	flags=c("cigar")
+	p1=ScanBamParam(tag=taglist, what=flags)
+	bc1 = BamCounter(file=file, param=p1)
+	
+	ieTag="IE"
+	out=calculateIndependentEvents(bc1, ieTag="IE", isSnp=TRUE)
+	print("NM")
+	print(head(bc1@res$tag$NM))
+	llply(seq_len(length(out)), function(i){
+											print(names(out)[i])
+											print(head(out[[i]]))
+	})
+	#print(head(out))
+	bc1@res$tag=c(bc1@res$tag,out)
+	HIlen=length(bc1@res$tag[["HI"]])
+	IElen=length(bc1@res$tag[[ieTag]])
+	
+	print(IElen)
+	expect_true(HIlen==IElen)
+
+	# check value using the output of bash function calcIE
+	ie_ref=read.table(file=ie_ref_file, header=TRUE, sep="\t")
+	print("IE ref")
+	print(head(ie_ref$IE))
+	print(length(ie_ref$IE))
+	expect_true(IElen==length(ie_ref$IE))
+	expect_true(isTRUE(all.equal(bc1@res$tag[[ieTag]],ie_ref$IE)))
+})

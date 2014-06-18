@@ -126,22 +126,6 @@ filterTag <- function(bamcounter, tag, value, skip=FALSE) {
     }
 }
 
-#countMismatchesAndJoin <- function(bam){
-#	if (!(file.exists(bam)))
-#		stop("Bam file does not exist. Check file name/path.")
-#	
-#	# count and join
-#	p1=ScanBamParam(tag=c("NM", "NH"), what="flag")
-#	p2=ScanBamParam(tag=c("NM", "NH"), what="flag", flag=scanBamFlag(isProperPair=TRUE))
-#	bc1 = BamCounter(file=bam, param=p1)
-#	bc2 = BamCounter(file=bam, param=p2)
-#	xtags=c("NH")
-#	bcl <- clusterMapCountMismatches(list(bc1,bc2),list(xtags,xtags))
-#	dfj <- joinCounts(bcl,c("AllAln_Freq","PropPairAln_Freq"),by=c("NM","NH"),type="left",match="first")
-#
-#	write.table(dfj,file=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM.tab",sep=""),sep="\t",row.names = FALSE)
-#}
-
 countMismatchesAndJoin <- function(bam, mismatchTag="NM", withOnlyFirstHit=TRUE, by="NH"){
 	# check validity of arguments
     if (!(file.exists(bam)))

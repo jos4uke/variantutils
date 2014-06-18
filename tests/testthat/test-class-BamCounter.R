@@ -71,6 +71,34 @@ test_that("TestCountMismatchesCrossedTags",{
 	print(h4, zero.print = ".")
 })
 
+test_that("TestCountPrimaryTagOnly",{
+	file=system.file("extdata", "ex1.bam", package="Rsamtools", mustWork=TRUE)
+    param=ScanBamParam(tag=c("NM", "H1"), what="flag")
+    bc = BamCounter(file=file, param=param)
+	tags=NULL
+	mismatchTag="NM"
+	df <- countPrimaryTag(bc,mismatchTag,tags)
+	
+	expect_match(class(df),"data.frame")	
+	cat("\n")
+	h3=df[1:3,]
+	print(h3, zero.print = ".")
+})
+
+test_that("TestCountPrimaryTagCrossedTags",{
+	file=system.file("extdata", "ex1.bam", package="Rsamtools", mustWork=TRUE)
+    param=ScanBamParam(tag=c("NM", "H1"), what="flag")
+    bc = BamCounter(file=file, param=param)
+	tags=c("H1")
+	mismatchTag="NM"
+	df <- countPrimaryTag(bc,mismatchTag,tags)
+	
+	expect_match(class(df),"data.frame")	
+	cat("\n")
+	h4=df[1:4,]
+	print(h4, zero.print = ".")
+})
+
 context("Parallel clusterMap")
 
 test_that("TestParallelClusterMapCountMismatches",{

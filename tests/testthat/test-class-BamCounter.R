@@ -124,6 +124,29 @@ test_that("TestParallelClusterMapCountMismatches",{
 	)
 })
 
+test_that("TestParallelClusterMapCountPrimaryTag",{
+	file=system.file("extdata", "ex1.bam", package="Rsamtools", mustWork=TRUE)
+	p1=ScanBamParam(tag=c("NM", "H1"), what="flag")
+	p2=ScanBamParam(tag=c("NM", "H1"), what="flag", flag=scanBamFlag(isProperPair=TRUE))
+	bc1 = BamCounter(file=file, param=p1)
+	bc2 = BamCounter(file=file, param=p2)
+	tags=c("H1")
+
+	mismatchTag="NM"
+	bcl <- clusterMapCountPrimaryTag(list(bc1,bc2),mismatchTag,list(tags,tags))
+
+	#print(paste("bcl length: ",length(bcl), sep=""), zero.print = ".")
+	expect_true(length(bcl)==2)
+	llply(seq_len(length(bcl)), function(i){
+											expect_match(class(bcl[[i]]),"BamCounter")
+											expect_true(length(row.names(bcl[[i]]@counts)) > 0)
+											cat("\n")
+											h5=bcl[[i]]@counts[1:5,]
+											print(h5, zero.print = ".")
+										}
+	)
+})
+
 #test_that("TestCountMismatchesTagsEquality: NM==XW+XV",{
 #    file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted.bam"
 #	#file=system.file("extdata", "test_XW_sorted.bam", package="VariantUtils", mustWork=TRUE)

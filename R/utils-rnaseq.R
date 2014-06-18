@@ -33,6 +33,37 @@ clusterMapCountMismatches <- function(bamcounter_list,mismatchTag,crosstags_list
 	bamcounter_list
 }
 
+clusterMapCountPrimaryTag <- function(bamcounter_list,mismatchTag,crosstags_list) {
+	# check validity of arguments
+	bclen <- length(bamcounter_list)
+	if (bclen==0L)
+		stop("bamcounter list length must be greater than 0")
+	if (bclen != length(crosstags_list))
+		stop("bamcounter object and bam tags lists must be of same length")
+	if (!(any(llply(bamcounter_list,class)=="BamCounter"))) 
+		stop("all elements in bamcounter list must be of class BamCounter")
+	if (!(class(mismatchTag)=="character") && !(nchar(mismatchTag)==2))
+		                stop("provided 'mismatchTag' value is not a 2-character string")
+	if (!(any(llply(crosstags_list, function(t){
+											  if (is.null(class(t))) return(TRUE) 
+											  ifelse(class(t)!="character", FALSE, TRUE)}
+					)==TRUE)))
+		stop("all elements in crosstags list must be NULL or of class character")
+
+	# parallel clusterMap
+	limit_cores=detectCores()/6
+	cs <- ifelse(bclen<=limit_cores, bclen, limit_cores)
+	cl <- makeCluster(cs, type="FORK")
+	bamcounter_list <- BiocGenerics::clusterApplyLB(cl, 1:bclen, function(i){
+																			bci <- bamcounter_list[[i]]
+																			xtagi <- crosstags_list[[i]]
+																			setCounts(bci) <- countPrimaryTag(bci,mismatchTag,xtagi)
+																			bci
+																			})
+	stopCluster(cl)
+	bamcounter_list
+}
+
 joinCounts <- function(bamcounter_list,freq_labels,by=NULL,type="left",match="first") {
 	# check validity of arguments
 	bclen <- length(bamcounter_list)

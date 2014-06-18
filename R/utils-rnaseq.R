@@ -196,12 +196,14 @@ countIndels <- function(cigar) {
 }
 
 
-calculateIndependentEvents <- function(bamcounter, ieTag="IE", isSnp=FALSE) {
+calculateIndependentEvents <- function(bamcounter, ieTag="IE", isSnp=FALSE, useCluster=FALSE) {
     # check validity of arguments
 	if (!(class(ieTag)=="character") && !(nchar(ieTag)==2))
 		stop("provided 'ieTag' value is not a 2-character string")
 	if (!(is.logical(isSnp)))
         stop("provided isSnp value is not logical/boolean")
+	if (!(is.logical(useCluster)))
+        stop("provided useCluster value is not logical/boolean")
 	if (!(class(bamcounter)=="BamCounter"))
 		stop("provided bamcounter value is not of class BamCounter")	
 	bamlist<-bamcounter@res
@@ -213,10 +215,24 @@ calculateIndependentEvents <- function(bamcounter, ieTag="IE", isSnp=FALSE) {
         if (!(is.null(bamlist$cigar))) {
 			# init output list
 			out=list()
-			# count indels
-			idl <- llply(seq_len(length(bamlist$cigar)), function(i) {
+
+			if (useCluster) {
+				# parallel clusterMap
+            	limit_cores=detectCores()/6
+				clen=length(bamlist$cigar)
+				cs <- ifelse(clen<=limit_cores, clen, limit_cores)
+				cl <- makeCluster(cs, type="FORK")
+
+				idl <- BiocGenerics::clusterApplyLB(cl,bamlist$cigar, function(c) {
+                                        countIndels(c)
+                })                                                            			
+				stopCluster(cl)                                                   			
+			# count indels without clusterMap
+			} else {
+				idl <- llply(seq_len(length(bamlist$cigar)), function(i) {
 																		countIndels(bamlist$cigar[[i]])
-			})
+				})
+			}	
 			m=matrix(unlist(idl),ncol=2, byrow=TRUE)
 			out$ID=m[,1]
 			out$IS=m[,2]

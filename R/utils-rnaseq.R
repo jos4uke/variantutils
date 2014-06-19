@@ -33,7 +33,7 @@ clusterMapCountMismatches <- function(bamcounter_list,mismatchTag,crosstags_list
 	bamcounter_list
 }
 
-clusterMapCountPrimaryTag <- function(bamcounter_list,mismatchTag,crosstags_list) {
+clusterMapCountPrimaryTag <- function(bamcounter_list,primaryTag,crosstags_list) {
 	# check validity of arguments
 	bclen <- length(bamcounter_list)
 	if (bclen==0L)
@@ -42,8 +42,8 @@ clusterMapCountPrimaryTag <- function(bamcounter_list,mismatchTag,crosstags_list
 		stop("bamcounter object and bam tags lists must be of same length")
 	if (!(any(llply(bamcounter_list,class)=="BamCounter"))) 
 		stop("all elements in bamcounter list must be of class BamCounter")
-	if (!(class(mismatchTag)=="character") && !(nchar(mismatchTag)==2))
-		                stop("provided 'mismatchTag' value is not a 2-character string")
+	if (!(class(primaryTag)=="character") && !(nchar(primaryTag)==2))
+		                stop("provided 'primaryTag' value is not a 2-character string")
 	if (!(any(llply(crosstags_list, function(t){
 											  if (is.null(class(t))) return(TRUE) 
 											  ifelse(class(t)!="character", FALSE, TRUE)}
@@ -57,11 +57,39 @@ clusterMapCountPrimaryTag <- function(bamcounter_list,mismatchTag,crosstags_list
 	bamcounter_list <- BiocGenerics::clusterApplyLB(cl, 1:bclen, function(i){
 																			bci <- bamcounter_list[[i]]
 																			xtagi <- crosstags_list[[i]]
-																			setCounts(bci) <- countPrimaryTag(bci,mismatchTag,xtagi)
+																			setCounts(bci) <- countPrimaryTag(bci,primaryTag,xtagi)
 																			bci
 																			})
 	stopCluster(cl)
 	bamcounter_list
+}
+
+clusterMapCalculateIndependentEvents <- function(bamcounter_list,tagIE,snpIs,clusterUse) {
+	# check validity of arguments
+    bclen <- length(bamcounter_list)
+    if (bclen==0L)
+        stop("bamcounter list length must be greater than 0")
+	if (!(any(llply(bamcounter_list,class)=="BamCounter")))
+        stop("all elements in bamcounter list must be of class BamCounter")
+	if (!(class(tagIE)=="character") && !(nchar(tagIE)==2))
+		stop("provided 'tagIE' value is not a 2-character string")
+	if (!(is.logical(isSnp)))
+        stop("provided 'snpIs' value is not logical/boolean")
+    if (!(is.logical(clusterUse)))
+        stop("provided 'clusterUse' value is not logical/boolean")
+
+	# parallel clusterMap
+    limit_cores=detectCores()/6
+    csie <- ifelse(bclen<=limit_cores, bclen, limit_cores)
+    clie <- makeCluster(csie, type="FORK")
+	bamcounter_list <- BiocGenerics::clusterApplyLB(clie, seq_len(bclen), function(i){
+                                                                            bci <- bamcounter_list[[i]]
+                                                                            out <- calculateIndependentEvents(bci, ieTag=tagIE, isSnp=snpIs, useCluster=clusterUse)
+																			bci@res$tag=c(bci@res$tag,out)
+																			bci
+                                                                            })
+    stopCluster(clie)
+	bamcounter_list 
 }
 
 joinCounts <- function(bamcounter_list,freq_labels,by=NULL,type="left",match="first") {
@@ -279,3 +307,67 @@ calculateIndependentEvents <- function(bamcounter, ieTag="IE", isSnp=FALSE, useC
 	}	
 }
 
+countIndependentEventsAndJoin <- function(bam, ieTag="IE", withOnlyFirstHit=TRUE, by="NH", mmTag="XW", vrTag="XV", tagsCrossing=c("IM"),isSnp=FALSE, useCluster=FALSE, outFilePrefix=NULL){
+	# check validity of arguments
+    if (!(file.exists(bam)))
+        stop("provided Bam file does not exist. Check file name/path.")
+	if (!(class(ieTag)=="character") && !(nchar(ieTag)==2))
+		        stop("provided 'ieTag' value is not a 2-character string")
+	if (!(is.logical(withOnlyFirstHit)))
+		stop("provided 'withOnlyFirstHit' value is not logical/boolean")
+	if (!(class(by)=="character") && !(nchar(by)==2))
+		stop("provided 'by' value is not a 2-character string")
+	if (!(class(mmTag)=="character") && !(nchar(mmTag)==2))
+        stop("provided 'mmTag' value is not a 2-character string")
+ 	if (!(class(vrTag)=="character") && !(nchar(vrTag)==2))
+        stop("provided 'vrTag' value is not a 2-character string")
+	if (!(any(llply(tagsCrossing, function(t){
+                          ifelse(class(t)=="character" && nchar(t)==2, TRUE, FALSE)}
+
+        )==TRUE)))
+        stop("provided tags crossing list elements must be of class character and 2-character long")
+	if (!(is.logical(isSnp)))
+        stop("provided 'isSnp' value is not logical/boolean")
+	if (!(is.logical(useCluster)))
+        stop("provided 'useCluster' value is not logical/boolean")
+
+    # load bam 
+	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+	if (isSnp==FALSE) {
+		taglist=c("NM", by, HI)
+	} else {
+		taglist=c("NM", by, mmTag, vrTag, HI)
+    }
+	fields=c("cigar","flag")
+	p1=ScanBamParam(tag=taglist, what=fields)
+    p2=ScanBamParam(tag=taglist, what=fields, flag=scanBamFlag(isProperPair=TRUE))
+    bc1 = BamCounter(file=bam, param=p1)
+    bc2 = BamCounter(file=bam, param=p2)
+
+	print(taglist	)
+
+	xtags=c(tagsCrossing, by)
+	xtagsCollapsed=paste(xtags,collapse="-")
+	# filter tag
+	if (withOnlyFirstHit) {
+		bc1@res <- filterTag(bc1, "HI", 1)
+    	bc2@res <- filterTag(bc2, "HI", 1)
+#		bc1@res<-bc1filt
+#		bc2@res<-bc2filt
+		countColnames=c("AllAln_WithOnlyFirstHit_Freq","ProperPairAln_WithOnlyFirstHit_Freq")
+		outFile=ifelse(is.null(outFilePrefix),paste(dirname(path.expand(bam)),"/",basename(bam),"_count",ieTag,"By",xtagsCollapsed,"_withOnlyFirstHit.tab",sep=""),
+									paste(outFilePrefix,"_count",ieTag,"By",xtagsCollapsed,"_withOnlyFirstHit.tab",sep=""))
+    } else {
+		countColnames=c("AllAln_WithAllHits_Freq","ProperPairAln_WithAllhHits_Freq")
+		outFile=ifelse(is.null(outFilePrefix),paste(dirname(path.expand(bam)),"/",basename(bam),"_count",ieTag,"By",xtagsCollapsed,"_withAllHits.tab",sep=""),
+									paste(outFilePrefix,"_count",ieTag,"By",xtagsCollapsed,"_withAllHits.tab",sep=""))
+	}
+	# calculating IE
+	bcl=list(bc1, bc2)
+	bcl <- clusterMapCalculateIndependentEvents(bcl, tagIE=ieTag,snpIs=isSnp,clusterUse=useCluster)
+	# cross counting and join
+    bcl <- clusterMapCountPrimaryTag(bcl,ieTag,list(xtags,xtags))
+    dfj <- joinCounts(bcl,countColnames,by=c(ieTag,xtags),type="left",match="first")
+
+    write.table(dfj,file=outFile,sep="\t",row.names = FALSE)
+}

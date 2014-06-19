@@ -147,6 +147,47 @@ test_that("TestParallelClusterMapCountPrimaryTag",{
 	)
 })
 
+test_that("TestParallelClusterMapCalculateIndependentEvents", {
+	file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/rnaseq_sample_NHI5_ID_nosnp.sorted.bam"
+    #file=system.file("extdata", "rnaseq_sample_NHI5_ID_nosnp.sorted.bam", package="VariantUtils", mustWork=TRUE)
+	
+	withOnlyFirstHit=TRUE
+	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+	ieTag="IE"
+	by="NH"
+	taglist=c("NM", by, HI)
+	fields=c("cigar","flag")
+	p1=ScanBamParam(tag=taglist, what=fields)
+    p2=ScanBamParam(tag=taglist, what=fields, flag=scanBamFlag(isProperPair=TRUE))
+    bc1 = BamCounter(file=file, param=p1)
+    bc2 = BamCounter(file=file, param=p2)
+	
+	# filter tag
+    if (withOnlyFirstHit) {
+        bc1filt <- filterTag(bc1, "HI", 1)
+        bc2filt <- filterTag(bc2, "HI", 1)
+        bc1@res<-bc1filt
+        bc2@res<-bc2filt
+	}
+
+	# calculating IE
+    bcl=list(bc1, bc2)
+	bclen=length(bcl)
+	isSnp=FALSE
+	useCluster=FALSE
+
+    bcl <- clusterMapCalculateIndependentEvents(bcl, tagIE=ieTag, snpIs=isSnp, clusterUse=useCluster)
+	
+	print(paste("bcl length: ",length(bcl), sep=""), zero.print = ".")
+	expect_true(length(bcl)==2)
+	llply(seq_len(length(bcl)), function(i){
+											expect_match(class(bcl[[i]]),"BamCounter")
+											expect_true(length(bcl[[i]]@res$tag[[ieTag]]) > 0)
+											cat("\n")
+											print(head(bcl[[i]]@res$tag[[ieTag]]), zero.print = ".")
+	})
+})
+
 #test_that("TestCountMismatchesTagsEquality: NM==XW+XV",{
 #    file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/test_XW_sorted.bam"
 #	#file=system.file("extdata", "test_XW_sorted.bam", package="VariantUtils", mustWork=TRUE)

@@ -73,7 +73,7 @@ clusterMapCalculateIndependentEvents <- function(bamcounter_list,tagIE,snpIs,clu
         stop("all elements in bamcounter list must be of class BamCounter")
 	if (!(class(tagIE)=="character") && !(nchar(tagIE)==2))
 		stop("provided 'tagIE' value is not a 2-character string")
-	if (!(is.logical(isSnp)))
+	if (!(is.logical(snpIs)))
         stop("provided 'snpIs' value is not logical/boolean")
     if (!(is.logical(clusterUse)))
         stop("provided 'clusterUse' value is not logical/boolean")

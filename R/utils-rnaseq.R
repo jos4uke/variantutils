@@ -371,3 +371,70 @@ countIndependentEventsAndJoin <- function(bam, ieTag="IE", withOnlyFirstHit=TRUE
 
     write.table(dfj,file=outFile,sep="\t",row.names = FALSE)
 }
+
+countIndependentEvents <- function(bam, ieTag="IE", withOnlyFirstHit=TRUE, by="NH", mmTag="XW", vrTag="XV", tagsCrossing=c("IM"),isSnp=FALSE, useCluster=FALSE, outFilePrefix=NULL){
+	# check validity of arguments
+    if (!(file.exists(bam)))
+        stop("provided Bam file does not exist. Check file name/path.")
+	if (!(class(ieTag)=="character") && !(nchar(ieTag)==2))
+		        stop("provided 'ieTag' value is not a 2-character string")
+	if (!(is.logical(withOnlyFirstHit)))
+		stop("provided 'withOnlyFirstHit' value is not logical/boolean")
+	if (!(class(by)=="character") && !(nchar(by)==2))
+		stop("provided 'by' value is not a 2-character string")
+	if (!(class(mmTag)=="character") && !(nchar(mmTag)==2))
+        stop("provided 'mmTag' value is not a 2-character string")
+ 	if (!(class(vrTag)=="character") && !(nchar(vrTag)==2))
+        stop("provided 'vrTag' value is not a 2-character string")
+	if (!(any(llply(tagsCrossing, function(t){
+                          ifelse(class(t)=="character" && nchar(t)==2, TRUE, FALSE)}
+
+        )==TRUE)))
+        stop("provided tags crossing list elements must be of class character and 2-character long")
+	if (!(is.logical(isSnp)))
+        stop("provided 'isSnp' value is not logical/boolean")
+	if (!(is.logical(useCluster)))
+        stop("provided 'useCluster' value is not logical/boolean")
+
+    # load bam 
+	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+	if (isSnp==FALSE) {
+		taglist=c("NM", by, HI)
+	} else {
+		taglist=c("NM", by, mmTag, vrTag, HI)
+    }
+	fields=c("cigar","flag")
+	p1=ScanBamParam(tag=taglist, what=fields)
+    bc1 = BamCounter(file=bam, param=p1)
+
+	print(taglist	)
+
+	xtags=c(tagsCrossing, by)
+	xtagsCollapsed=paste(xtags,collapse="-")
+	# filter tag
+	if (withOnlyFirstHit) {
+		bc1@res <- filterTag(bc1, "HI", 1)
+#		bc1@res<-bc1filt
+		countColnames=c("AllAln_WithOnlyFirstHit_Freq")
+		outFile=ifelse(is.null(outFilePrefix),paste(dirname(path.expand(bam)),"/",basename(bam),"_count",ieTag,"By",xtagsCollapsed,"_withOnlyFirstHit.tab",sep=""),
+									paste(outFilePrefix,"_count",ieTag,"By",xtagsCollapsed,"_withOnlyFirstHit.tab",sep=""))
+    } else {
+		countColnames=c("AllAln_WithAllHits_Freq")
+		outFile=ifelse(is.null(outFilePrefix),paste(dirname(path.expand(bam)),"/",basename(bam),"_count",ieTag,"By",xtagsCollapsed,"_withAllHits.tab",sep=""),
+									paste(outFilePrefix,"_count",ieTag,"By",xtagsCollapsed,"_withAllHits.tab",sep=""))
+	}
+	# calculating IE
+	bcl=list(bc1)
+	bcl <- clusterMapCalculateIndependentEvents(bcl, tagIE=ieTag,snpIs=isSnp,clusterUse=useCluster)
+	# cross counting and join
+    bcl <- clusterMapCountPrimaryTag(bcl,ieTag,list(xtags))
+
+	# rename "Freq" column name in each dataframe with the right label
+    dfl <- llply(seq_len(length(bcl)), function(i){ 
+                                              bci <- bcl[[i]]
+                                              colnames(bci@counts) <- replace(colnames(bci@counts), which(colnames(bci@counts) == "Freq"), countColnames[[i]])
+                                              bci@counts
+                                            })
+
+    write.table(dfl[[1]],file=outFile,sep="\t",row.names = FALSE)
+}

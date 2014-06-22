@@ -270,13 +270,13 @@ calculateIndependentEvents <- function(bamcounter, ieTag="IE", isSnp=FALSE, useC
                                         countIndels(c)
                 })                                                            			
 				stopCluster(cl)                                                   			
+				m=matrix(unlist(idl),ncol=2, byrow=TRUE)
 			# count indels without clusterMap
 			} else {
-				idl <- llply(seq_len(length(bamlist$cigar)), function(i) {
+				m <- laply(seq_len(length(bamlist$cigar)), function(i) {
 																		countIndels(bamlist$cigar[[i]])
-				})
+				}, .parallel=TRUE)
 			}	
-			m=matrix(unlist(idl),ncol=2, byrow=TRUE)
 			out$ID=m[,1]
 			out$IS=m[,2]
 

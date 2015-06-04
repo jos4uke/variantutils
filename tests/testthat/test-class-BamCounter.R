@@ -33,7 +33,8 @@ test_that("TestBamCounterSetCounts",{
     param=ScanBamParam(tag=c("NM", "H1"), what="flag")
     bc = BamCounter(file=file, param=param)
 	tags=NULL
-	setCounts(bc) <- countMismatches(bc,tags)
+	mismatchTag="NM"
+	setCounts(bc) <- countMismatches(bc,mismatchTag,tags)
 	
 	expect_match(class(bc@counts),"data.frame")
 	expect_true(length(row.names(bc@counts)) > 0) 
@@ -47,7 +48,8 @@ test_that("TestCountMismatchesOnly",{
     param=ScanBamParam(tag=c("NM", "H1"), what="flag")
     bc = BamCounter(file=file, param=param)
 	tags=NULL
-	df <- countMismatches(bc,tags)
+	mismatchTag="NM"
+	df <- countMismatches(bc,mismatchTag,tags)
 	
 	expect_match(class(df),"data.frame")	
 	cat("\n")
@@ -60,7 +62,8 @@ test_that("TestCountMismatchesCrossedTags",{
     param=ScanBamParam(tag=c("NM", "H1"), what="flag")
     bc = BamCounter(file=file, param=param)
 	tags=c("H1")
-	df <- countMismatches(bc,tags)
+	mismatchTag="NM"
+	df <- countMismatches(bc,mismatchTag,tags)
 	
 	expect_match(class(df),"data.frame")	
 	cat("\n")
@@ -78,7 +81,8 @@ test_that("TestParallelClusterMapCountMismatches",{
 	bc2 = BamCounter(file=file, param=p2)
 	tags=c("H1")
 
-	bcl <- clusterMapCountMismatches(list(bc1,bc2),list(tags,tags))
+	mismatchTag="NM"
+	bcl <- clusterMapCountMismatches(list(bc1,bc2),mismatchTag,list(tags,tags))
 
 	#print(paste("bcl length: ",length(bcl), sep=""), zero.print = ".")
 	expect_true(length(bcl)==2)
@@ -101,8 +105,8 @@ test_that("TestJoiningCounts",{
 	bc1 = BamCounter(file=file, param=p1)
 	bc2 = BamCounter(file=file, param=p2)
 	tags=c("H1")
-
-	bcl <- clusterMapCountMismatches(list(bc1,bc2),list(tags,tags))
+	mismatchTag="NM"
+	bcl <- clusterMapCountMismatches(list(bc1,bc2),mismatchTag,list(tags,tags))
 
 	dfj <- joinCounts(bcl,c("AllAln_Freq","PropPairAln_Freq"),by=c("NM","H1"),type="left",match="first")
 

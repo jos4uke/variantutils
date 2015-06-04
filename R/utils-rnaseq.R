@@ -2,7 +2,7 @@
 ### Utils functions
 ### ======================================
 
-clusterMapCountMismatches <- function(bamcounter_list,crosstags_list) {
+clusterMapCountMismatches <- function(bamcounter_list,mismatchTag,crosstags_list) {
 	# check validity of arguments
 	bclen <- length(bamcounter_list)
 	if (bclen==0L)
@@ -11,6 +11,8 @@ clusterMapCountMismatches <- function(bamcounter_list,crosstags_list) {
 		stop("bamcounter object and bam tags lists must be of same length")
 	if (!(any(llply(bamcounter_list,class)=="BamCounter"))) 
 		stop("all elements in bamcounter list must be of class BamCounter")
+	if (!(class(mismatchTag)=="character") && !(nchar(mismatchTag)==2))
+		                stop("provided 'mismatchTag' value is not a 2-character string")
 	if (!(any(llply(crosstags_list, function(t){
 											  if (is.null(class(t))) return(TRUE) 
 											  ifelse(class(t)!="character", FALSE, TRUE)}
@@ -24,7 +26,7 @@ clusterMapCountMismatches <- function(bamcounter_list,crosstags_list) {
 	bamcounter_list <- BiocGenerics::clusterApplyLB(cl, 1:bclen, function(i){
 																			bci <- bamcounter_list[[i]]
 																			xtagi <- crosstags_list[[i]]
-																			setCounts(bci) <- countMismatches(bci,xtagi)
+																			setCounts(bci) <- countMismatches(bci,mismatchTag,xtagi)
 																			bci
 																			})
 	stopCluster(cl)
@@ -140,10 +142,12 @@ filterTag <- function(bamcounter, tag, value, skip=FALSE) {
 #	write.table(dfj,file=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM.tab",sep=""),sep="\t",row.names = FALSE)
 #}
 
-countMismatchesAndJoin <- function(bam, withOnlyFirstHit=TRUE, by="NH"){
+countMismatchesAndJoin <- function(bam, mismatchTag="NM", withOnlyFirstHit=TRUE, by="NH"){
 	# check validity of arguments
     if (!(file.exists(bam)))
         stop("provided Bam file does not exist. Check file name/path.")
+	if (!(class(mismatchTag)=="character") && !(nchar(mismatchTag)==2))
+		        stop("provided 'mismatchTag' value is not a 2-character string")
 	if (!(is.logical(withOnlyFirstHit)))
 		stop("provided withOnlyFirstHit value is not logical/boolean")
 	if (!(class(by)=="character") && !(nchar(by)==2))
@@ -151,7 +155,7 @@ countMismatchesAndJoin <- function(bam, withOnlyFirstHit=TRUE, by="NH"){
  
     # count and join
 	HI=ifelse(withOnlyFirstHit,"HI",NULL)
-	taglist=c("NM", by, HI)
+	taglist=c(mismatchTag, by, HI)
     p1=ScanBamParam(tag=taglist, what="flag")
     p2=ScanBamParam(tag=taglist, what="flag", flag=scanBamFlag(isProperPair=TRUE))
     bc1 = BamCounter(file=bam, param=p1)
@@ -162,15 +166,15 @@ countMismatchesAndJoin <- function(bam, withOnlyFirstHit=TRUE, by="NH"){
 		bc1@res<-bc1filt
 		bc2@res<-bc2filt
 		countColnames=c("AllAln_WithOnlyFirstHit_Freq","ProperPairAln_WithOnlyFirstHit_Freq")
-		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_withOnlyFirstHit.tab",sep="")
+		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_",mismatchTag,"By",by,"_withOnlyFirstHit.tab",sep="")
     } else {
 		countColnames=c("AllAln_WithAllHits_Freq","ProperPairAln_WithAllhHits_Freq")
-		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_withAllHits.tab",sep="")
+		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_",mismatchTag,"By",by,"_withAllHits.tab",sep="")
 	}
 	bcl=list(bc1, bc2)
 	xtags=c(by)
-    bcl <- clusterMapCountMismatches(bcl,list(xtags,xtags))
-    dfj <- joinCounts(bcl,countColnames,by=c("NM",by),type="left",match="first")
+    bcl <- clusterMapCountMismatches(bcl,mismatchTag,list(xtags,xtags))
+    dfj <- joinCounts(bcl,countColnames,by=c(mismatchTag,by),type="left",match="first")
 
     write.table(dfj,file=outFile,sep="\t",row.names = FALSE)
 }

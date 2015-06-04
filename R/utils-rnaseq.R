@@ -60,18 +60,104 @@ joinCounts <- function(bamcounter_list,freq_labels,by=NULL,type="left",match="fi
 	dfj
 }
 
-countMismatchesAndJoin <- function(bam){
-	if (!(file.exists(bam)))
-		stop("Bam file does not exist. Check file name/path.")
-	
-	# count and join
-	p1=ScanBamParam(tag=c("NM", "NH"), what="flag")
-	p2=ScanBamParam(tag=c("NM", "NH"), what="flag", flag=scanBamFlag(isProperPair=TRUE))
-	bc1 = BamCounter(file=bam, param=p1)
-	bc2 = BamCounter(file=bam, param=p2)
-	xtags=c("NH")
-	bcl <- clusterMapCountMismatches(list(bc1,bc2),list(xtags,xtags))
-	dfj <- joinCounts(bcl,c("AllAln_Freq","PropPairAln_Freq"),by=c("NM","NH"),type="left",match="first")
+filterTag <- function(bamcounter, tag, value, skip=FALSE) {
+    # check validity of arguments
+    if (!(class(bamcounter)=="BamCounter"))
+        stop("provided bamcounter value is not of class BamCounter")
+    bamlist<-bamcounter@res
+    bamlistlen <- length(bamlist)
+    if (bamlistlen==0L)
+        stop("provided bam list length must be greater than 0")
+    if (!(any(llply(list(tag, value), function(t){
+                          if (is.null(class(t))) return(TRUE)
+                          ifelse(!(class(t) %in% c("character","numeric")), FALSE, TRUE)}
 
-	write.table(dfj,file=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM.tab",sep=""),sep="\t",row.names = FALSE)
+        )==TRUE)))
+        stop("provided tag, value pair must be NULL or of class character or numeric")
+    if (!(is.logical(skip)))
+        stop("provided skip value is not logical/boolean")
+
+    # filter for tag/value
+    if (!(is.null(class(tag))) && !(is.null(class(value)))) {
+        if (!(is.null(bamlist$tag[[tag]]))) {
+            # 
+            fields<-names(bamlist)[which(!names(bamlist) == "tag")]
+            # output only alignments with the given tag/value pair
+            if (!(skip==TRUE)) {
+                # idx       
+                idx<-which(bamlist$tag[[tag]]==value)
+
+            # skip alignments with the given tag/value pair
+            } else {
+                # idx       
+                idx<-which(bamlist$tag[[tag]]!=value)
+            }
+            # filter fields
+            bamlistfilt <- lapply(bamlist[fields], function(v) {
+                                        if (!(is.vector(v)))
+                                            stop("should be a vector")
+                                        v[idx]
+                })
+            # filter tag list
+            bamlistfilt$tag <- lapply(bamlist$tag, function(v) {
+                                          if (!(is.vector(v)))
+                                              stop("should be a vector")
+                                          v[idx]
+                })
+            bamlistfilt
+        }
+    }
 }
+
+#countMismatchesAndJoin <- function(bam){
+#	if (!(file.exists(bam)))
+#		stop("Bam file does not exist. Check file name/path.")
+#	
+#	# count and join
+#	p1=ScanBamParam(tag=c("NM", "NH"), what="flag")
+#	p2=ScanBamParam(tag=c("NM", "NH"), what="flag", flag=scanBamFlag(isProperPair=TRUE))
+#	bc1 = BamCounter(file=bam, param=p1)
+#	bc2 = BamCounter(file=bam, param=p2)
+#	xtags=c("NH")
+#	bcl <- clusterMapCountMismatches(list(bc1,bc2),list(xtags,xtags))
+#	dfj <- joinCounts(bcl,c("AllAln_Freq","PropPairAln_Freq"),by=c("NM","NH"),type="left",match="first")
+#
+#	write.table(dfj,file=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM.tab",sep=""),sep="\t",row.names = FALSE)
+#}
+
+countMismatchesAndJoin <- function(bam, withOnlyFirstHit=TRUE, by="NH"){
+	# check validity of arguments
+    if (!(file.exists(bam)))
+        stop("provided Bam file does not exist. Check file name/path.")
+	if (!(is.logical(withOnlyFirstHit)))
+		stop("provided withOnlyFirstHit value is not logical/boolean")
+	if (!(class(by)=="character") && !(nchar(by)==2))
+		stop("provided 'by' value is not a 2-character string")
+ 
+    # count and join
+	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+	taglist=c("NM", by, HI)
+    p1=ScanBamParam(tag=taglist, what="flag")
+    p2=ScanBamParam(tag=taglist, what="flag", flag=scanBamFlag(isProperPair=TRUE))
+    bc1 = BamCounter(file=bam, param=p1)
+    bc2 = BamCounter(file=bam, param=p2)
+	if (withOnlyFirstHit) {
+		bc1filt <- filterTag(bc1, "HI", 1)
+    	bc2filt <- filterTag(bc2, "HI", 1)
+		bc1@res<-bc1filt
+		bc2@res<-bc2filt
+		countColnames=c("AllAln_WithOnlyFirstHit_Freq","ProperPairAln_WithOnlyFirstHit_Freq")
+		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_withOnlyFirstHit.tab",sep="")
+    } else {
+		countColnames=c("AllAln_WithAllHits_Freq","ProperPairAln_WithAllhHits_Freq")
+		outFile=paste(dirname(path.expand(bam)),"/",basename(bam),"_countMM_withAllHits.tab",sep="")
+	}
+	bcl=list(bc1, bc2)
+	xtags=c(by)
+    bcl <- clusterMapCountMismatches(bcl,list(xtags,xtags))
+    dfj <- joinCounts(bcl,countColnames,by=c("NM",by),type="left",match="first")
+
+    write.table(dfj,file=outFile,sep="\t",row.names = FALSE)
+}
+
+

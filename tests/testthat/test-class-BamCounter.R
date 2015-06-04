@@ -114,3 +114,24 @@ test_that("TestJoiningCounts",{
 	h6=dfj[1:6,]
 	print(h6, zero.print = ".")
 })
+
+context("Filtering tags")
+
+test_that("TestFilteringTagsHI:i:1",{
+	#file="/home/ldap/users/jtran/dev/R/projects/variantutils/inst/extdata/sample_NHI5.sorted.bam"
+	file="../../data/sample_NHI5.sorted.bam"
+	if (!file.exists(file))
+		warning(paste(file, "file does not exist.", sep=" "))
+
+	withOnlyFirstHit=TRUE
+	HI=ifelse(withOnlyFirstHit,"HI",NULL)
+    taglist=c("NM", "NH", HI)
+    p1=ScanBamParam(tag=taglist, what="flag")
+	bc1 = BamCounter(file=file, param=p1)
+	bc1filt <- filterTag(bc1, "HI", 1)
+	
+	str(bc1filt)
+	HI1len=length(bc1filt$tag[["HI"]])
+	print(HI1len)
+	expect_true(HI1len==19L)
+})
